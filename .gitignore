@@ -1,0 +1,9 @@
+.idea
+log
+data
+venv
+
+*.txt
+*.har
+config.json
+*.session
