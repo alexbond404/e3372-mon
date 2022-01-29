@@ -6,6 +6,7 @@ import os
 import sys
 import pyrogram
 import asyncio
+from signal import SIGINT, SIGTERM
 
 
 def load_settings(fname: str) -> dict:
@@ -34,6 +35,19 @@ if __name__ == "__main__":
     @tg_client.on_message()
     async def on_msg(client: pyrogram.Client, message: pyrogram.types.Message):
         pass
+
+
+    async def shutdown(signal, loop):
+        logging.info(f"Received exit signal {signal.name}...")
+        tasks = [t for t in asyncio.all_tasks() if t is not
+                 asyncio.current_task()]
+
+        for task in tasks:
+            task.cancel()
+
+        logging.info("Cancelling outstanding tasks")
+        await asyncio.gather(*tasks, return_exceptions=True)
+        loop.stop()
 
 
     async def pyrogram_main(sem_tg_ready: asyncio.Semaphore):
@@ -92,11 +106,11 @@ if __name__ == "__main__":
 
     # start main loop
     loop = asyncio.get_event_loop()
+    for signal in [SIGINT, SIGTERM]:
+        loop.add_signal_handler(signal, lambda s=signal: asyncio.create_task(shutdown(s, loop)))
     sem_tg_ready = asyncio.Semaphore(0)
     pyrogram_task = asyncio.ensure_future(pyrogram_main(sem_tg_ready))
     main_task = asyncio.ensure_future(main(loop, sem_tg_ready))
-#    for signal in [SIGINT, SIGTERM]:
-#        loop.add_signal_handler(signal, main_task.cancel)
     try:
         loop.run_until_complete(asyncio.wait([pyrogram_task, main_task]))
     finally:
