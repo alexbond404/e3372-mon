@@ -50,7 +50,7 @@ class ClientThread(threading.Thread):
 						print("client recv:")
 						print(data)
 						data_s = data.decode()
-						if data_s.startswith("GET "):
+						if data_s.startswith("GET ") or data_s.startswith("POST "):
 							data_s = data_s.replace("http://192.168.8.1", "")
 							data = data_s.encode()
 							print("client data new:")
