@@ -7,3 +7,4 @@ venv
 *.har
 config.json
 *.session
+*.session-journal

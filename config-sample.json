@@ -1,0 +1,11 @@
+{
+	"telegram":
+	{
+		"api_id":		<api-id>,
+		"api_hash":		"<api-hash>",
+		"session": 		"MySession"
+	},
+	"telegram-chat-name": "MyChatName",
+
+	"sms-check-period": 60
+}
