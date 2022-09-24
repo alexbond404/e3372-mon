@@ -158,13 +158,13 @@ if __name__ == "__main__":
                     while int((await modem.get_sms_count())['LocalInbox']) > 0:
                         sms_list = await modem.get_sms_list()
                         # workaround for 1 message due to wrong parsing
-                        if sms_list["Messages"]["Message"].get("Index") is not None:
+                        if not isinstance(sms_list["Messages"]["Message"], list):
                             x = sms_list["Messages"]["Message"]
                             sms_list["Messages"]["Message"] = [x]
                         # iterate over all SMS
                         for sms in sms_list["Messages"]["Message"]:
                             await tg_client.send_message(chat_id, f"sms\r\n{sms['Date']}\r\n{sms['Phone']}\r\n{sms['Content']}")
-                            await modem.delete_sms(int(sms['Index']))
+                            await modem.sms_delete(int(sms['Index']))
             except Exception as e:
                 logging.exception("main loop exception")
 

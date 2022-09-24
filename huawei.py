@@ -7,8 +7,21 @@ from bs4 import BeautifulSoup
 
 IP = "192.168.8.1"
 
+# error
+ERROR_PIN_INCORRECT = 103002
+ERROR_TRY_AGAIN     = 111019
 ERROR_NO_SESSION_ID = 125002
-ERROR_TRY_AGAIN = 111019
+
+# SimState
+SIM_NO_SIM_CARD = '255'
+SIM_CPIN_FAIL = '256'
+SIM_PIN_READY = '257'
+SIM_PIN_REQUIRED = '260'
+SIM_PUK_REQUIRED = '261'
+
+# PinOptState
+SIM_PIN_DISABLE = '258'
+SIM_PIN_VALIDATE = '259'
 
 
 def _get_base_url():
@@ -74,7 +87,8 @@ class Huawei:
             data_s = data.decode('utf-8')
         return data_s
 
-    def _proc_error(self, data):
+    @staticmethod
+    def _proc_error(data):
         if data.get("error") is not None:
             code = int(data.get("error").get("code", "0"))
             if code == ERROR_NO_SESSION_ID:
@@ -89,7 +103,7 @@ class Huawei:
         parsed_html = BeautifulSoup(data, features="html.parser")
         tokens = parsed_html.head.find_all('meta', attrs={'name': 'csrf_token'})
         if len(tokens) == 2:
-            return (tokens[0]['content'], tokens[1]['content'])
+            return tokens[0]['content'], tokens[1]['content']
         raise Exception
 
     async def get_traffic_stat(self):
@@ -130,7 +144,7 @@ class Huawei:
         self._proc_error(data)
         return data['response']
 
-    async def set_read(self, index: int):
+    async def sms_set_read(self, index: int):
         # get tokens
         sms_tokens = await self._get_tokens("/html/smsinbox.html")
 
@@ -142,7 +156,7 @@ class Huawei:
         data = xmltodict.parse(await self._proc_post_request("/api/sms/set-reads", req.encode('utf-8'), sms_tokens))
         self._proc_error(data)
 
-    async def delete_sms(self, index):
+    async def sms_delete(self, index):
         # create list with sms indexes
         index_list = []
         if isinstance(index, int):
@@ -157,6 +171,39 @@ class Huawei:
               '</request>'
         data = xmltodict.parse(await self._proc_post_request("/api/sms/delete-sms", req.encode('utf-8'), sms_tokens))
         self._proc_error(data)
+
+    async def sms_send(self, number: str, text: str, timeout: int = 30):
+        # get tokens
+        sms_tokens = await self._get_tokens("/html/smsinbox.html")
+
+        # form and process request
+        req = '<?xml version="1.0" encoding="UTF-8"?>' \
+              '<request>' \
+                '<Index>-1</Index>' \
+                '<Phones>' \
+                    f'<Phone>{number}</Phone>' \
+                '</Phones>' \
+                '<Sca></Sca>'\
+                f'<Content>{text}</Content>'\
+                f'<Length>{len(text)}</Length>'\
+                '<Reserved>1</Reserved>'\
+                f'<Date>{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</Date>'\
+              '</request>'
+        data = xmltodict.parse(await self._proc_post_request("/api/sms/send-sms", req.encode('utf-8'), sms_tokens))
+        self._proc_error(data)
+
+        # wait for response
+        time_end = time.time() + timeout
+        while time_end >= time.time():
+            data = xmltodict.parse(await self._proc_get_request("/api/sms/send-status"))
+            try:
+                self._proc_error(data)
+                return data['response']['SucPhone'] is not None
+            except TryAgainError:
+                await asyncio.sleep(0.5)
+            except Exception as e:
+                raise e
+        return False
 
     async def ussd_request(self, ussd: str, timeout: int = 30):
         # get tokens
