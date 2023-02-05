@@ -7,13 +7,13 @@ import sys
 import pyrogram
 import asyncio
 from signal import SIGINT, SIGTERM
-
 import huawei
 
 
 def load_settings(fname: str) -> dict:
     with open(fname, encoding="utf-8") as f:
         return json.load(f)
+
 
 def bytes_to_str(val):
     if val < 1024:
@@ -77,7 +77,7 @@ if __name__ == "__main__":
                 elif m.startswith("@stat"):
                     try:
                         stat = await modem.get_month_traffic_stat()
-                        reply_msg = "\r\n".join([f"Время подключения: {stat['MonthDuration']}",
+                        reply_msg = "\r\n".join([f"Время подключения: {datetime.timedelta(seconds=int(stat['MonthDuration']))}",
                                                  f"Upload: {bytes_to_str(int(stat['CurrentMonthUpload']))}",
                                                  f"Download: {bytes_to_str(int(stat['CurrentMonthDownload']))}"])
                     except Exception as e:
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 else:
                     reply_msg = "error: unknown command"
 
-                await client.read_history(message.chat.id, message.message_id)
+                await client.read_chat_history(message.chat.id, message.id)
                 await message.reply_text(reply_msg, quote=True)
 
 
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
             try:
                 if tg_client.is_connected:
-                    a = await tg_client.send(pyrogram.raw.functions.messages.GetAllChats(except_ids=[]))
+                    a = await tg_client.invoke(pyrogram.raw.functions.messages.GetAllChats(except_ids=[]))
                     if isinstance(a, pyrogram.raw.types.messages.Chats):
                         for chat in a.chats:
                             if chat.title == sett["telegram-chat-name"]:
